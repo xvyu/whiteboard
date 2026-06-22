@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>协作白板 V2</title>
+</head>
+<body>
+
+<!-- 房间选择遮罩 -->
+<div id="roomOverlay">
+  <div id="roomDialog">
+    <h2>🎨 加入白板房间</h2>
+    <p>输入房间号加入协作，或随机生成</p>
+    <div class="form-group">
+      <label>房间号</label>
+      <input type="text" id="roomInput" placeholder="例如：my_room_001" maxlength="50">
+    </div>
+    <div class="form-group">
+      <label>房间密码（可选）</label>
+      <input type="text" id="roomPassword" placeholder="输入密码，留空为无密码" maxlength="50">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-outline" onclick="generateRoom()">🎲 随机生成</button>
+      <button class="btn btn-primary" onclick="joinRoom()">加入房间</button>
+    </div>
+    <div class="error-text" id="roomError"></div>
+    <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);text-align:center;">
+      <span style="font-size:12px;color:var(--text2);" id="roomUserInfo"></span>
+      <button class="btn btn-outline" onclick="logout()" style="display:inline-block;width:auto;padding:6px 16px;margin-top:6px;font-size:12px;color:#e74c3c;border-color:#e74c3c;">退出登录</button>
+    </div>
+  </div>
+</div>
+
+<!-- 工具栏 -->
+<div id="toolbar">
+  <button class="tool-btn" data-tool="select" title="选择/移动 (V)"><span>🖱️</span><span class="tip">选择 V</span></button>
+  <button class="tool-btn active" data-tool="pen" title="画笔 (P)"><span>✏</span><span class="tip">画笔 P</span></button>
+  <button class="tool-btn" data-tool="marker" title="标记笔"><span>🖊</span><span class="tip">标记笔</span></button>
+  <button class="tool-btn" data-tool="highlighter" title="荧光笔"><span>🖍</span><span class="tip">荧光笔</span></button>
+  <span class="tool-sep"></span>
+  <button class="tool-btn" data-tool="rect" title="矩形 (R)"><span>▭</span><span class="tip">矩形 R</span></button>
+  <button class="tool-btn" data-tool="circle" title="圆形 (C)"><span>○</span><span class="tip">圆形 C</span></button>
+  <button class="tool-btn" data-tool="triangle" title="三角形"><span>△</span><span class="tip">三角形</span></button>
+  <button class="tool-btn" data-tool="line" title="直线 (L)"><span>╱</span><span class="tip">直线 L</span></button>
+  <button class="tool-btn" data-tool="arrow" title="箭头"><span>➤</span><span class="tip">箭头</span></button>
+  <span class="tool-sep"></span>
+  <button class="tool-btn" data-tool="text" title="文字 (T)"><span>T</span><span class="tip">文字 T</span></button>
+  <button class="tool-btn" data-tool="fill" title="填充桶"><span>🪣</span><span class="tip">填充桶</span></button>
+  <button class="tool-btn" data-tool="eraser" title="橡皮擦 (E)"><span>🧽</span><span class="tip">橡皮擦 E</span></button>
+  <span class="tool-sep"></span>
+  <input type="color" id="colorPicker" value="#333333" title="颜色选择器">
+  <div class="color-swatches" id="colorSwatches"></div>
+  <div id="sizePreview"><span></span></div>
+  <input type="range" id="sizeSlider" min="1" max="30" value="3" title="线条粗细">
+  <span id="sizeVal">3</span>
+  <span class="tool-sep"></span>
+  <button class="tool-btn" id="btnUndo" title="撤销 (Ctrl+Z)"><span>↩</span><span class="tip">撤销 Ctrl+Z</span></button>
+  <button class="tool-btn" id="btnRedo" title="重做 (Ctrl+Y)"><span>↪</span><span class="tip">重做 Ctrl+Y</span></button>
+  <button class="tool-btn" id="btnClear" title="清空画板"><span>🗑</span><span class="tip">清空画板</span></button>
+  <button class="tool-btn" id="btnExport" title="导出PNG"><span>📥</span><span class="tip">导出PNG</span></button>
+  <span class="tool-sep"></span>
+  <button class="tool-btn" id="btnGridToggle" title="网格显示"><span>📐</span><span class="tip">切换网格</span></button>
+  <button class="tool-btn" id="btnCopyLink" title="复制房间链接"><span>🔗</span><span class="tip">复制链接</span></button>
+  <button class="tool-btn" id="btnTogglePanel" title="切换侧栏"><span>☰</span><span class="tip">侧栏</span></button>
+  <span class="tool-sep"></span>
+  <button class="exit-room-btn" onclick="exitRoom()" title="退出房间">退出房间</button>
+</div>
+
+<!-- 主区域 -->
+<div id="main">
+  <div id="canvasWrap">
+    <canvas id="mainCanvas"></canvas>
+    <canvas id="tempCanvas" style="pointer-events:none;"></canvas>
+  </div>
+
+  <!-- 右侧面板 -->
+  <div id="sidePanel">
+    <div class="side-tabs">
+      <div class="side-tab active" data-panel="users">👥 用户</div>
+      <div class="side-tab" data-panel="chat">💬 聊天</div>
+      <div class="side-tab" data-panel="saves">💾 存档</div>
+    </div>
+    <div class="side-content active" id="panel-users"></div>
+    <div class="side-content" id="panel-chat">
+      <div id="chatMessages"><div class="chat-msg system">欢迎来到协作白板！</div></div>
+      <div class="chat-input-row">
+        <input type="text" id="chatInput" placeholder="输入消息..." maxlength="500">
+        <button onclick="sendChat()">发送</button>
+      </div>
+    </div>
+    <div class="side-content" id="panel-saves">
+      <div id="statesList"></div>
+      <div class="state-actions">
+        <input type="text" id="saveName" placeholder="存档名称" maxlength="50">
+        <button onclick="saveState()">💾 保存当前画板</button>
+      </div>
+    </div>
+    <!-- 面板底部固定操作栏（位于侧边栏最底部） -->
+    <div class="panel-footer">
+      <div style="font-size:11px;color:var(--text2);text-align:center;" id="panelUserInfo"></div>
+      <button onclick="logout()" class="logout-btn">退出登录</button>
+    </div>
+  </div>
+</div>
+
+<!-- 状态栏 -->
+<div id="statusBar">
+  <div class="status-dot" id="statusDot"></div>
+  <span id="modeBadge">连接中...</span>
+  <span id="roomInfo">—</span>
+  <span style="margin-left:8px;font-size:11px;color:var(--text2);" id="onlineCountBar">👥 0 人在线</span>
+  <span style="margin-left:auto" id="userInfo">游客</span>
+</div>
+
+<script type="module" src="/src/whiteboard/main.js"></script>
+</body>
+</html>
