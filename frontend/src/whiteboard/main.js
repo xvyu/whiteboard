@@ -405,6 +405,11 @@ function handleRemoteMessage(msg) {
       STATE._lastDrawTime = Date.now() // 他人清空 → 加快同步
       STATE.objects = [];       renderAll(); break
     case 'full_state':
+      // 如果来源是加载存档，直接替换（不合并，避免旧画迹残留）
+      if (msg.source === 'load') {
+        STATE.objects = msg.objects || []
+        break
+      }
       // ⚠️ 合并而非直接替换：保留本地有但服务端没有的对象（frp隧道丢包保护）
       if (msg.objects) {
         const serverIds = new Set(msg.objects.map(o => o.id))

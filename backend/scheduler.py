@@ -13,7 +13,7 @@ from .room_manager import online_rooms
 logger = logging.getLogger("whiteboard-v2")
 
 # 快照间隔（秒）
-SNAPSHOT_INTERVAL = 300  # 5分钟
+SNAPSHOT_INTERVAL = 180  # 3分钟
 
 
 async def take_snapshots():
